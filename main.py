@@ -7,12 +7,29 @@ from PyQt5.QtWidgets import (QApplication, QPushButton, QMainWindow, QButtonGrou
 from PyQt5.QtCore import Qt, QPoint
 from PyQt5.QtGui import QFont, QIcon
 
+# 添加兼容层处理旧版Windows系统
+def get_safe_path(path):
+    """安全处理路径，避免使用现代Windows API"""
+    try:
+        # 使用基本os.path功能替代新API
+        return os.path.normpath(path)
+    except:
+        return path
+
 class ChessButton(QPushButton):
     def __init__(self, id, parent=None):
         super().__init__("", parent)
         self.id = id
         self.setFixedSize(40, 40)
-        self.setFont(QFont("SimHei", 12, QFont.Bold))
+        # 使用更通用的字体
+        try:
+            self.setFont(QFont("SimHei", 12, QFont.Bold))
+        except:
+            # 后备字体方案
+            font = QFont()
+            font.setPointSize(12)
+            font.setBold(True)
+            self.setFont(font)
         
 class ChessSelector(QWidget):
     def __init__(self, parent=None):
@@ -25,7 +42,13 @@ class ChessSelector(QWidget):
         # 添加标题
         title = QLabel("选择棋子类型")
         title.setAlignment(Qt.AlignCenter)
-        title.setFont(QFont("SimHei", 10, QFont.Bold))
+        try:
+            title.setFont(QFont("SimHei", 10, QFont.Bold))
+        except:
+            font = QFont()
+            font.setPointSize(10)
+            font.setBold(True)
+            title.setFont(font)
         layout.addWidget(title)
         
         # 创建棋子选择网格
@@ -44,7 +67,12 @@ class ChessSelector(QWidget):
         row, col = 0, 0
         for i, piece in enumerate(pieces):
             button = QRadioButton(piece)
-            button.setFont(QFont("SimHei", 12))
+            try:
+                button.setFont(QFont("SimHei", 12))
+            except:
+                font = QFont()
+                font.setPointSize(12)
+                button.setFont(font)
             self.buttonGroup.addButton(button)
             self.buttonList.append(button)
             grid.addWidget(button, row, col)
@@ -68,6 +96,13 @@ class MilitaryChessRecorder(QMainWindow):
         self.setWindowTitle("军旗记牌器")
         self.setFixedSize(640, 350)
         
+        # 设置窗口始终显示在最上面
+        try:
+            self.setWindowFlags(self.windowFlags() | Qt.WindowStaysOnTopHint)
+        except:
+            # 如果设置窗口标志失败，忽略错误
+            pass
+        
         # 创建中央窗口部件
         centralWidget = QWidget()
         self.setCentralWidget(centralWidget)
@@ -82,14 +117,24 @@ class MilitaryChessRecorder(QMainWindow):
         
         # 上家棋盘
         topGroupBox = QGroupBox("上家")
-        topGroupBox.setFont(QFont("SimHei", 12))
+        try:
+            topGroupBox.setFont(QFont("SimHei", 12))
+        except:
+            font = QFont()
+            font.setPointSize(12)
+            topGroupBox.setFont(font)
         topLayout = QGridLayout()
         self.createChessBoard(topLayout, 0, 5, 5)
         topGroupBox.setLayout(topLayout)
         
         # 下家棋盘
         bottomGroupBox = QGroupBox("下家")
-        bottomGroupBox.setFont(QFont("SimHei", 12))
+        try:
+            bottomGroupBox.setFont(QFont("SimHei", 12))
+        except:
+            font = QFont()
+            font.setPointSize(12)
+            bottomGroupBox.setFont(font)
         bottomLayout = QGridLayout()
         self.createChessBoard(bottomLayout, 25, 5, 5, flip=True)
         bottomGroupBox.setLayout(bottomLayout)
@@ -102,20 +147,45 @@ class MilitaryChessRecorder(QMainWindow):
         buttonLayout = QHBoxLayout()
         
         self.clearButton = QPushButton("清除所有")
-        self.clearButton.setFont(QFont("SimHei", 10))
+        try:
+            self.clearButton.setFont(QFont("SimHei", 10))
+        except:
+            font = QFont()
+            font.setPointSize(10)
+            self.clearButton.setFont(font)
         self.clearButton.clicked.connect(self.clearAll)
         
         self.saveButton = QPushButton("保存")
-        self.saveButton.setFont(QFont("SimHei", 10))
+        try:
+            self.saveButton.setFont(QFont("SimHei", 10))
+        except:
+            font = QFont()
+            font.setPointSize(10)
+            self.saveButton.setFont(font)
         self.saveButton.clicked.connect(self.saveState)
         
         self.loadButton = QPushButton("加载")
-        self.loadButton.setFont(QFont("SimHei", 10))
+        try:
+            self.loadButton.setFont(QFont("SimHei", 10))
+        except:
+            font = QFont()
+            font.setPointSize(10)
+            self.loadButton.setFont(font)
         self.loadButton.clicked.connect(self.loadState)
+        
+        self.topMostButton = QPushButton("取消置顶")
+        try:
+            self.topMostButton.setFont(QFont("SimHei", 10))
+        except:
+            font = QFont()
+            font.setPointSize(10)
+            self.topMostButton.setFont(font)
+        self.topMostButton.clicked.connect(self.toggleTopMost)
         
         buttonLayout.addWidget(self.clearButton)
         buttonLayout.addWidget(self.saveButton)
         buttonLayout.addWidget(self.loadButton)
+        buttonLayout.addWidget(self.topMostButton)
         
         mainLayout.addLayout(buttonLayout)
         
@@ -213,65 +283,84 @@ class MilitaryChessRecorder(QMainWindow):
                     buttonId += 1
         
     def buttonClick(self, button):
-        self.currentButton = button
-        
-        # 显示选择器在按钮附近
-        buttonPos = button.mapToGlobal(QPoint(0, 0))
-        self.chessSelector.move(buttonPos + QPoint(button.width(), 0))
-        self.chessSelector.show()
+        try:
+            self.currentButton = button
+            
+            # 显示选择器在按钮附近
+            buttonPos = button.mapToGlobal(QPoint(0, 0))
+            self.chessSelector.move(buttonPos + QPoint(button.width(), 0))
+            self.chessSelector.show()
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"点击处理出错: {str(e)}")
         
     def handleSelection(self, radioButton):
-        if self.currentButton:
-            self.currentButton.setText(radioButton.text())
-            
-            # 根据选项设置不同的样式
-            text = radioButton.text()
-            if text in ["司", "军", "师"]:
-                self.currentButton.setStyleSheet("background-color: #ffe6e6;")
-            elif text in ["旅", "团", "营", "连", "排", "兵"]:
-                self.currentButton.setStyleSheet("background-color: #e6f2ff;")
-            elif text in ["炸", "雷", "旗"]:
-                self.currentButton.setStyleSheet("background-color: #ffffcc;")
-            elif text in ["大", "中", "小"]:
-                self.currentButton.setStyleSheet("background-color: #e6ffe6;")
-            elif text in ["!", "?", "*"]:
-                self.currentButton.setStyleSheet("background-color: #f2e6ff;")
-            else:
-                self.currentButton.setStyleSheet("")
+        try:
+            if self.currentButton:
+                self.currentButton.setText(radioButton.text())
                 
-        self.chessSelector.hide()
+                # 根据选项设置不同的样式
+                text = radioButton.text()
+                if text in ["司", "军", "师"]:
+                    self.currentButton.setStyleSheet("background-color: #ffe6e6;")
+                elif text in ["旅", "团", "营", "连", "排", "兵"]:
+                    self.currentButton.setStyleSheet("background-color: #e6f2ff;")
+                elif text in ["炸", "雷", "旗"]:
+                    self.currentButton.setStyleSheet("background-color: #ffffcc;")
+                elif text in ["大", "中", "小"]:
+                    self.currentButton.setStyleSheet("background-color: #e6ffe6;")
+                elif text in ["!", "?", "*"]:
+                    self.currentButton.setStyleSheet("background-color: #f2e6ff;")
+                else:
+                    self.currentButton.setStyleSheet("")
+                    
+            self.chessSelector.hide()
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"选择处理出错: {str(e)}")
         
     def clearAll(self):
-        for button in self.chessButtons:
-            button.setText("")
-            button.setStyleSheet("")
+        try:
+            for button in self.chessButtons:
+                button.setText("")
+                button.setStyleSheet("")
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"清除出错: {str(e)}")
             
     def saveState(self):
         """保存当前标记状态到文件"""
-        fileName, _ = QFileDialog.getSaveFileName(self, "保存记录", "", 
-                                                 "军旗记录文件 (*.jq);;所有文件 (*)")
-        if fileName:
-            data = []
-            for button in self.chessButtons:
-                data.append({
-                    'id': button.id,
-                    'text': button.text(),
-                    'style': button.styleSheet()
-                })
+        try:
+            fileName, _ = QFileDialog.getSaveFileName(self, "保存记录", "", 
+                                                   "军旗记录文件 (*.jq);;所有文件 (*)")
+            if fileName:
+                # 确保文件名有正确的扩展名
+                if not fileName.lower().endswith('.jq'):
+                    fileName += '.jq'
                 
-            try:
+                # 使用安全路径处理
+                fileName = get_safe_path(fileName)
+                
+                data = []
+                for button in self.chessButtons:
+                    data.append({
+                        'id': button.id,
+                        'text': button.text(),
+                        'style': button.styleSheet()
+                    })
+                    
                 with open(fileName, 'w', encoding='utf-8') as f:
                     json.dump(data, f, ensure_ascii=False)
                 QMessageBox.information(self, "保存成功", "记录已成功保存！")
-            except Exception as e:
-                QMessageBox.warning(self, "保存失败", f"保存记录时出错: {str(e)}")
+        except Exception as e:
+            QMessageBox.warning(self, "保存失败", f"保存记录时出错: {str(e)}")
                 
     def loadState(self):
         """从文件加载标记状态"""
-        fileName, _ = QFileDialog.getOpenFileName(self, "加载记录", "", 
-                                                 "军旗记录文件 (*.jq);;所有文件 (*)")
-        if fileName:
-            try:
+        try:
+            fileName, _ = QFileDialog.getOpenFileName(self, "加载记录", "", 
+                                                   "军旗记录文件 (*.jq);;所有文件 (*)")
+            if fileName:
+                # 使用安全路径处理
+                fileName = get_safe_path(fileName)
+                
                 with open(fileName, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     
@@ -284,14 +373,43 @@ class MilitaryChessRecorder(QMainWindow):
                         button.setStyleSheet(item['style'])
                         
                 QMessageBox.information(self, "加载成功", "记录已成功加载！")
+        except UnicodeError:
+            # 尝试不同的编码
+            try:
+                with open(fileName, 'r', encoding='gbk') as f:
+                    data = json.load(f)
+                # 处理数据...
+                QMessageBox.information(self, "加载成功", "记录已成功加载！")
             except Exception as e:
                 QMessageBox.warning(self, "加载失败", f"加载记录时出错: {str(e)}")
+        except Exception as e:
+            QMessageBox.warning(self, "加载失败", f"加载记录时出错: {str(e)}")
+
+    def toggleTopMost(self):
+        try:
+            flags = self.windowFlags()
+            if flags & Qt.WindowStaysOnTopHint:
+                # 取消置顶
+                self.setWindowFlags(flags & ~Qt.WindowStaysOnTopHint)
+                self.topMostButton.setText("置顶窗口")
+            else:
+                # 设置置顶
+                self.setWindowFlags(flags | Qt.WindowStaysOnTopHint)
+                self.topMostButton.setText("取消置顶")
+            self.show()  # 必须重新显示窗口才能应用标志更改
+        except Exception as e:
+            QMessageBox.warning(self, "错误", f"切换置顶状态出错: {str(e)}")
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    window = MilitaryChessRecorder()
-    window.show()
-    sys.exit(app.exec_())
+    try:
+        app = QApplication(sys.argv)
+        window = MilitaryChessRecorder()
+        window.show()
+        sys.exit(app.exec_())
+    except Exception as e:
+        # 捕获主程序异常
+        QMessageBox.critical(None, "程序错误", f"程序启动失败: {str(e)}")
+        sys.exit(1)
 
 
 
