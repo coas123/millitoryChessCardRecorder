@@ -1,188 +1,271 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QPushButton, QMessageBox, QMainWindow, QButtonGroup, QRadioButton, QWidget, QDialog
+import json
+import os
+from PyQt5.QtWidgets import (QApplication, QPushButton, QMainWindow, QButtonGroup, 
+                            QRadioButton, QWidget, QGridLayout, QVBoxLayout, QHBoxLayout, 
+                            QLabel, QGroupBox, QFileDialog, QMessageBox)
+from PyQt5.QtCore import Qt, QPoint
+from PyQt5.QtGui import QFont, QIcon
 
-num = 0
+class ChessButton(QPushButton):
+    def __init__(self, id, parent=None):
+        super().__init__("", parent)
+        self.id = id
+        self.setFixedSize(40, 40)
+        self.setFont(QFont("SimHei", 12, QFont.Bold))
+        
+class ChessSelector(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowFlags(Qt.Popup)
+        self.setFixedWidth(240)
+        
+        layout = QVBoxLayout()
+        
+        # 添加标题
+        title = QLabel("选择棋子类型")
+        title.setAlignment(Qt.AlignCenter)
+        title.setFont(QFont("SimHei", 10, QFont.Bold))
+        layout.addWidget(title)
+        
+        # 创建棋子选择网格
+        grid = QGridLayout()
+        
+        self.buttonGroup = QButtonGroup(self)
+        self.buttonList = []
+        
+        # 棋子类型
+        pieces = [
+            "司", "军", "师", "旅", "团", "营", "连", "排", "兵", 
+            "炸", "雷", "旗", "大", "中", "小", "!", "?", "*", ""
+        ]
+        
+        # 创建单选按钮并添加到网格中
+        row, col = 0, 0
+        for i, piece in enumerate(pieces):
+            button = QRadioButton(piece)
+            button.setFont(QFont("SimHei", 12))
+            self.buttonGroup.addButton(button)
+            self.buttonList.append(button)
+            grid.addWidget(button, row, col)
+            col += 1
+            if col > 3:
+                col = 0
+                row += 1
+        
+        layout.addLayout(grid)
+        self.setLayout(layout)
+        
+class MilitaryChessRecorder(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.currentButton = None
+        self.chessButtons = []
+        self.initUI()
+        
+    def initUI(self):
+        # 主窗口设置
+        self.setWindowTitle("军旗记牌器")
+        self.setFixedSize(640, 350)
+        
+        # 创建中央窗口部件
+        centralWidget = QWidget()
+        self.setCentralWidget(centralWidget)
+        
+        # 主布局
+        mainLayout = QVBoxLayout(centralWidget)
+        mainLayout.setContentsMargins(10, 10, 10, 10)
+        mainLayout.setSpacing(10)
+        
+        # 创建两个棋盘区域
+        boardsLayout = QHBoxLayout()
+        
+        # 上家棋盘
+        topGroupBox = QGroupBox("上家")
+        topGroupBox.setFont(QFont("SimHei", 12))
+        topLayout = QGridLayout()
+        self.createChessBoard(topLayout, 0, 5, 5)
+        topGroupBox.setLayout(topLayout)
+        
+        # 下家棋盘
+        bottomGroupBox = QGroupBox("下家")
+        bottomGroupBox.setFont(QFont("SimHei", 12))
+        bottomLayout = QGridLayout()
+        self.createChessBoard(bottomLayout, 25, 5, 5)
+        bottomGroupBox.setLayout(bottomLayout)
+        
+        boardsLayout.addWidget(topGroupBox)
+        boardsLayout.addWidget(bottomGroupBox)
+        mainLayout.addLayout(boardsLayout)
+        
+        # 底部按钮区域
+        buttonLayout = QHBoxLayout()
+        
+        self.clearButton = QPushButton("清除所有")
+        self.clearButton.setFont(QFont("SimHei", 10))
+        self.clearButton.clicked.connect(self.clearAll)
+        
+        self.saveButton = QPushButton("保存")
+        self.saveButton.setFont(QFont("SimHei", 10))
+        self.saveButton.clicked.connect(self.saveState)
+        
+        self.loadButton = QPushButton("加载")
+        self.loadButton.setFont(QFont("SimHei", 10))
+        self.loadButton.clicked.connect(self.loadState)
+        
+        buttonLayout.addWidget(self.clearButton)
+        buttonLayout.addWidget(self.saveButton)
+        buttonLayout.addWidget(self.loadButton)
+        
+        mainLayout.addLayout(buttonLayout)
+        
+        # 创建棋子选择器
+        self.chessSelector = ChessSelector(self)
+        self.chessSelector.buttonGroup.buttonClicked.connect(self.handleSelection)
+        self.chessSelector.hide()
+        
+        # 设置样式
+        self.setStyleSheet("""
+        QMainWindow {
+            background-color: #f5f5f5;
+        }
+        QPushButton {
+            background-color: #e0e0e0;
+            border: 1px solid #b0b0b0;
+            border-radius: 4px;
+            padding: 4px;
+        }
+        QPushButton:hover {
+            background-color: #d0d0d0;
+        }
+        QGroupBox {
+            border: 2px solid #c0c0c0;
+            border-radius: 5px;
+            margin-top: 10px;
+            padding-top: 15px;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            subcontrol-position: top center;
+            padding: 0 5px;
+        }
+        ChessButton {
+            background-color: #f0f0f0;
+            border: 2px solid #a0a0a0;
+        }
+        ChessButton:hover {
+            background-color: #e5e5e5;
+            border: 2px solid #808080;
+        }
+        """)
+        
+    def createChessBoard(self, layout, startId, cols, rows):
+        """创建棋盘网格"""
+        # 创建棋盘的特定布局 (基于军旗游戏)
+        chessPositions = [
+            # 第一行
+            [(0,0), (0,1), (0,2), (0,3), (0,4), (0,5)],
+            # 第二行
+            [(1,0), (1,1), None, (1,3), None, (1,5)],
+            # 第三行
+            [(2,0), (2,1), (2,2), None, (2,4), (2,5)],
+            # 第四行
+            [(3,0), (3,1), None, (3,3), None, (3,5)],
+            # 第五行
+            [(4,0), (4,1), (4,2), (4,3), (4,4), (4,5)]
+        ]
+        
+        buttonId = startId
+        
+        for row, positions in enumerate(chessPositions):
+            for col, pos in enumerate(positions):
+                if pos is not None:
+                    button = ChessButton(buttonId, self)
+                    button.clicked.connect(lambda checked, btn=button: self.buttonClick(btn))
+                    layout.addWidget(button, pos[0], pos[1])
+                    self.chessButtons.append(button)
+                    buttonId += 1
+        
+    def buttonClick(self, button):
+        self.currentButton = button
+        
+        # 显示选择器在按钮附近
+        buttonPos = button.mapToGlobal(QPoint(0, 0))
+        self.chessSelector.move(buttonPos + QPoint(button.width(), 0))
+        self.chessSelector.show()
+        
+    def handleSelection(self, radioButton):
+        if self.currentButton:
+            self.currentButton.setText(radioButton.text())
+            
+            # 根据选项设置不同的样式
+            text = radioButton.text()
+            if text in ["司", "军", "师"]:
+                self.currentButton.setStyleSheet("background-color: #ffe6e6;")
+            elif text in ["旅", "团", "营", "连", "排", "兵"]:
+                self.currentButton.setStyleSheet("background-color: #e6f2ff;")
+            elif text in ["炸", "雷", "旗"]:
+                self.currentButton.setStyleSheet("background-color: #ffffcc;")
+            elif text in ["大", "中", "小"]:
+                self.currentButton.setStyleSheet("background-color: #e6ffe6;")
+            elif text in ["!", "?", "*"]:
+                self.currentButton.setStyleSheet("background-color: #f2e6ff;")
+            else:
+                self.currentButton.setStyleSheet("")
+                
+        self.chessSelector.hide()
+        
+    def clearAll(self):
+        for button in self.chessButtons:
+            button.setText("")
+            button.setStyleSheet("")
+            
+    def saveState(self):
+        """保存当前标记状态到文件"""
+        fileName, _ = QFileDialog.getSaveFileName(self, "保存记录", "", 
+                                                 "军旗记录文件 (*.jq);;所有文件 (*)")
+        if fileName:
+            data = []
+            for button in self.chessButtons:
+                data.append({
+                    'id': button.id,
+                    'text': button.text(),
+                    'style': button.styleSheet()
+                })
+                
+            try:
+                with open(fileName, 'w', encoding='utf-8') as f:
+                    json.dump(data, f, ensure_ascii=False)
+                QMessageBox.information(self, "保存成功", "记录已成功保存！")
+            except Exception as e:
+                QMessageBox.warning(self, "保存失败", f"保存记录时出错: {str(e)}")
+                
+    def loadState(self):
+        """从文件加载标记状态"""
+        fileName, _ = QFileDialog.getOpenFileName(self, "加载记录", "", 
+                                                 "军旗记录文件 (*.jq);;所有文件 (*)")
+        if fileName:
+            try:
+                with open(fileName, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+                    
+                button_dict = {btn.id: btn for btn in self.chessButtons}
+                
+                for item in data:
+                    if item['id'] in button_dict:
+                        button = button_dict[item['id']]
+                        button.setText(item['text'])
+                        button.setStyleSheet(item['style'])
+                        
+                QMessageBox.information(self, "加载成功", "记录已成功加载！")
+            except Exception as e:
+                QMessageBox.warning(self, "加载失败", f"加载记录时出错: {str(e)}")
 
-def buttonClick(which):
-    global num
-    num = which
-    subWidget.setHidden(False)
-
-def handleComb():
-    chosenText = comb.checkedButton().text()
-    btNow = btList[num]
-    btNow.setText(chosenText)
-    comb.setExclusive(False)
-    for button in buttonList:
-        button.setChecked(False)
-    comb.setExclusive(True)
-    subWidget.setHidden(True)
-
-def clearAll():
-    for bt in btList:
-        bt.setText("")
-
-app = QApplication(sys.argv)
-widget = QWidget()
-
-btClear = QPushButton("清除", widget)
-btClear.move(20, 300)
-btClear.clicked.connect(clearAll)
-
-def getChase(id,x,y):
-    button = QPushButton("", widget)
-    button.setFixedWidth(40)
-    button.setFixedHeight(40)
-    button.move(x, y)
-    button.clicked.connect(lambda: buttonClick(id))
-    return button
-
-# 上家的棋
-bt0 = getChase(0,20,40)
-bt1 = getChase(1,60,40)
-bt2 = getChase(2,100,40)
-bt3 = getChase(3,140,40)
-bt4 = getChase(4,180,40)
-bt5 = getChase(5,220,40)
-
-bt6 = getChase(6,20,80)
-bt7 = getChase(7,60,80)
-bt8 = getChase(8,140,80)
-bt9 = getChase(9,220,80)
-
-bt10 = getChase(10,20,120)
-bt11 = getChase(11,60,120)
-bt12 = getChase(12,100,120)
-bt13 = getChase(13,180,120)
-bt14 = getChase(14,220,120)
-
-bt15 = getChase(15,20,160)
-bt16 = getChase(16,60,160)
-bt17 = getChase(17,140,160)
-bt18 = getChase(18,220,160)
-
-bt19 = getChase(19,20,200)
-bt20 = getChase(20,60,200)
-bt21 = getChase(21,100,200)
-bt22 = getChase(22,140,200)
-bt23 = getChase(23,180,200)
-bt24 = getChase(24,220,200)
-
-# 下家的棋
-bt25 = getChase(25,300,40)
-bt26 = getChase(26,340,40)
-bt27 = getChase(27,380,40)
-bt28 = getChase(28,420,40)
-bt29 = getChase(29,460,40)
-bt30 = getChase(30,500,40)
-
-bt31 = getChase(31,300,80)
-bt32 = getChase(32,380,80)
-bt33 = getChase(33,460,80)
-bt34 = getChase(34,500,80)
-
-bt35 = getChase(35,300,120)
-bt36 = getChase(36,340,120)
-bt37 = getChase(37,420,120)
-bt38 = getChase(38,460,120)
-bt39 = getChase(39,500,120)
-
-bt40 = getChase(40,300,160)
-bt41 = getChase(41,380,160)
-bt42 = getChase(42,460,160)
-bt43 = getChase(43,500,160)
-
-bt44 = getChase(44,300,200)
-bt45 = getChase(45,340,200)
-bt46 = getChase(46,380,200)
-bt47 = getChase(47,420,200)
-bt48 = getChase(48,460,200)
-bt49 = getChase(49,500,200)
-
-btList = [bt0, bt1, bt2, bt3, bt4, bt5, bt6, bt7, bt8, bt9, bt10, bt11, bt12, bt13, bt14, bt15, bt16, bt17, bt18, bt19, bt20, bt21, bt22, bt23, bt24, bt25, bt26, bt27, bt28, bt29, bt30, bt31, bt32, bt33, bt34, bt35, bt36, bt37, bt38, bt39, bt40, bt41, bt42, bt43, bt44, bt45, bt46, bt47, bt48, bt49]
-
-btNow = bt0
-
-subWidget = QWidget(widget)
-subWidget.setFixedWidth(200)
-subWidget.setFixedHeight(200)
-subWidget.move(180,230)
-subWidget.setHidden(True)
-
-comb = QButtonGroup(subWidget)
-
-button1 = QRadioButton("司", subWidget)
-button1.move(10,20)
-button2 = QRadioButton("军", subWidget)
-button2.move(50,20)
-button3 = QRadioButton("师", subWidget)
-button3.move(90,20)
-button4 = QRadioButton("旅", subWidget)
-button4.move(130,20)
-button5 = QRadioButton("团", subWidget)
-button5.move(10,50)
-button6 = QRadioButton("营", subWidget)
-button6.move(50,50)
-button7 = QRadioButton("连", subWidget)
-button7.move(90,50)
-button8 = QRadioButton("排", subWidget)
-button8.move(130,50)
-button9 = QRadioButton("兵", subWidget)
-button9.move(10,80)
-button10 = QRadioButton("炸", subWidget)
-button10.move(50,80)
-button11 = QRadioButton("雷", subWidget)
-button11.move(90,80)
-button12 = QRadioButton("旗", subWidget)
-button12.move(130,80)
-button13 = QRadioButton("大", subWidget)
-button13.move(10,110)
-button14 = QRadioButton("中", subWidget)
-button14.move(50,110)
-button15 = QRadioButton("小", subWidget)
-button15.move(90,110)
-button16 = QRadioButton("!", subWidget)
-button16.move(10,140)
-button17 = QRadioButton("?", subWidget)
-button17.move(50,140)
-button18 = QRadioButton("*", subWidget)
-button18.move(90,140)
-button19 = QRadioButton("", subWidget)
-button19.move(130,140)
-
-buttonList = [button1,button2,button3,button4,button5,button6,button7,button8,button9,button10,button11,button12,button13,button14,button15,button16,button17,button18,button19]
-
-comb.addButton(button1)
-comb.addButton(button2)
-comb.addButton(button3)
-comb.addButton(button4)
-comb.addButton(button5)
-comb.addButton(button6)
-comb.addButton(button7)
-comb.addButton(button8)
-comb.addButton(button9)
-comb.addButton(button10)
-comb.addButton(button11)
-comb.addButton(button12)
-comb.addButton(button13)
-comb.addButton(button14)
-comb.addButton(button15)
-comb.addButton(button16)
-comb.addButton(button17)
-comb.addButton(button18)
-comb.addButton(button19)
-
-comb.buttonClicked.connect(handleComb)
-
-comb.setParent(widget)
-
-
-
-
-widget.resize(600, 400)
-widget.setWindowTitle("军旗记牌器")
-widget.show()
-sys.exit(app.exec())
+if __name__ == "__main__":
+    app = QApplication(sys.argv)
+    window = MilitaryChessRecorder()
+    window.show()
+    sys.exit(app.exec_())
 
 
 
