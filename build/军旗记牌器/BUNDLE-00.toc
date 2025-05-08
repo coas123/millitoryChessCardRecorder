@@ -1,0 +1,3 @@
+([('军旗记牌器',
+   '/Users/lgh/code/millitoryChessCardRecorder/dist/军旗记牌器',
+   'EXECUTABLE')],)

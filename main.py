@@ -18,7 +18,7 @@ class ChessSelector(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowFlags(Qt.Popup)
-        self.setFixedWidth(240)
+        self.setFixedWidth(300)
         
         layout = QVBoxLayout()
         
