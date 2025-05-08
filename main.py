@@ -91,7 +91,7 @@ class MilitaryChessRecorder(QMainWindow):
         bottomGroupBox = QGroupBox("下家")
         bottomGroupBox.setFont(QFont("SimHei", 12))
         bottomLayout = QGridLayout()
-        self.createChessBoard(bottomLayout, 25, 5, 5)
+        self.createChessBoard(bottomLayout, 25, 5, 5, flip=True)
         bottomGroupBox.setLayout(bottomLayout)
         
         boardsLayout.addWidget(topGroupBox)
@@ -159,8 +159,16 @@ class MilitaryChessRecorder(QMainWindow):
         }
         """)
         
-    def createChessBoard(self, layout, startId, cols, rows):
-        """创建棋盘网格"""
+    def createChessBoard(self, layout, startId, cols, rows, flip=False):
+        """创建棋盘网格
+        
+        参数:
+            layout: 布局管理器
+            startId: 起始按钮ID
+            cols: 列数
+            rows: 行数
+            flip: 是否镜像列布局
+        """
         # 创建棋盘的特定布局 (基于军旗游戏)
         chessPositions = [
             # 第一行
@@ -175,6 +183,24 @@ class MilitaryChessRecorder(QMainWindow):
             [(4,0), (4,1), (4,2), (4,3), (4,4), (4,5)]
         ]
         
+        # 如果需要镜像列布局
+        if flip:
+            # 只镜像列顺序，不颠倒行
+            flipped_positions = []
+            # 总列数减1（0-based索引）
+            total_cols = 5
+            
+            for row_index, row_positions in enumerate(chessPositions):
+                new_row = []
+                for pos in row_positions:
+                    if pos is not None:
+                        # 只镜像列索引: (total_cols - pos[1])，保持行索引不变
+                        new_row.append((pos[0], total_cols - pos[1]))
+                    else:
+                        new_row.append(None)
+                flipped_positions.append(new_row)
+            chessPositions = flipped_positions
+            
         buttonId = startId
         
         for row, positions in enumerate(chessPositions):
