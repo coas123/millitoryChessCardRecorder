@@ -31,6 +31,29 @@ class ChessButton(QPushButton):
             font.setBold(True)
             self.setFont(font)
         
+    def mousePressEvent(self, event):
+        """处理鼠标按下事件，支持左键和右键点击"""
+        try:
+            if event.button() == Qt.LeftButton:
+                # 左键点击，调用默认行为
+                super().mousePressEvent(event)
+            elif event.button() == Qt.RightButton:
+                # 右键点击，触发选择器
+                if hasattr(self.parent(), 'buttonClick'):
+                    self.parent().buttonClick(self)
+                else:
+                    # 如果parent没有buttonClick方法，查找主窗口
+                    widget = self
+                    while widget:
+                        widget = widget.parent()
+                        if hasattr(widget, 'buttonClick'):
+                            widget.buttonClick(self)
+                            break
+        except Exception as e:
+            # 如果发生错误，至少保证左键功能正常
+            if event.button() == Qt.LeftButton:
+                super().mousePressEvent(event)
+
 class ChessSelector(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
