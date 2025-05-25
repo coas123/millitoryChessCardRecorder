@@ -82,8 +82,8 @@ class ChessSelector(QWidget):
         
         # 棋子类型
         pieces = [
-            "司", "军", "师", "旅", "团", "营", "连", "排", "兵", 
-            "炸", "雷", "旗", "大", "中", "小", "!", "?", "*", ""
+            "司", "军", "师", "旅", "炸", "兵", 
+            "雷", "大", "中", "小", "!", "?", "*", ""
         ]
         
         # 创建单选按钮并添加到网格中
@@ -323,11 +323,9 @@ class MilitaryChessRecorder(QMainWindow):
                 
                 # 根据选项设置不同的样式
                 text = radioButton.text()
-                if text in ["司", "军", "师"]:
+                if text in ["司", "军", "师", "旅"]:
                     self.currentButton.setStyleSheet("background-color: #ffe6e6;")
-                elif text in ["旅", "团", "营", "连", "排", "兵"]:
-                    self.currentButton.setStyleSheet("background-color: #e6f2ff;")
-                elif text in ["炸", "雷", "旗"]:
+                elif text in ["炸", "雷", "兵"]:
                     self.currentButton.setStyleSheet("background-color: #ffffcc;")
                 elif text in ["大", "中", "小"]:
                     self.currentButton.setStyleSheet("background-color: #e6ffe6;")
